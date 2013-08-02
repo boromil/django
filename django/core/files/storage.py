@@ -8,7 +8,7 @@ import itertools
 from datetime import datetime
 
 from django.conf import settings
-from django.core.exceptions import SuspiciousOperation
+from django.core.exceptions import SuspiciousFileOperation
 from django.core.files import locks, File
 from django.core.files.move import file_move_safe
 from django.utils.encoding import force_text, filepath_to_uri
@@ -231,6 +231,7 @@ class FileSystemStorage(Storage):
         return name
 
     def delete(self, name):
+        assert name, "The name argument is not allowed to be empty."
         name = self.path(name)
         # If the file exists, delete it from the filesystem.
         # Note that there is a race between os.path.exists and os.remove:
@@ -260,7 +261,7 @@ class FileSystemStorage(Storage):
         try:
             path = safe_join(self.location, name)
         except ValueError:
-            raise SuspiciousOperation("Attempted access to '%s' denied." % name)
+            raise SuspiciousFileOperation("Attempted access to '%s' denied." % name)
         return os.path.normpath(path)
 
     def size(self, name):

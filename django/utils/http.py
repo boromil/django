@@ -1,5 +1,6 @@
 from __future__ import unicode_literals
 
+import base64
 import calendar
 import datetime
 import re
@@ -11,7 +12,7 @@ except ImportError:     # Python 2
     import urlparse
     urllib_parse.urlparse = urlparse.urlparse
 
-
+from binascii import Error as BinasciiError
 from email.utils import formatdate
 
 from django.utils.datastructures import MultiValueDict
@@ -71,7 +72,7 @@ urlunquote_plus = allow_lazy(urlunquote_plus, six.text_type)
 def urlencode(query, doseq=0):
     """
     A version of Python's urllib.urlencode() function that can operate on
-    unicode strings. The parameters are first case to UTF-8 encoded strings and
+    unicode strings. The parameters are first cast to UTF-8 encoded strings and
     then encoded as per normal.
     """
     if isinstance(query, MultiValueDict):
@@ -201,6 +202,24 @@ def int_to_base36(i):
         i = i % j
         factor -= 1
     return ''.join(base36)
+
+def urlsafe_base64_encode(s):
+    """
+    Encodes a bytestring in base64 for use in URLs, stripping any trailing
+    equal signs.
+    """
+    return base64.urlsafe_b64encode(s).rstrip(b'\n=')
+
+def urlsafe_base64_decode(s):
+    """
+    Decodes a base64 encoded string, adding back any trailing equal signs that
+    might have been stripped.
+    """
+    s = s.encode('utf-8') # base64encode should only return ASCII.
+    try:
+        return base64.urlsafe_b64decode(s.ljust(len(s) + len(s) % 4, b'='))
+    except (LookupError, BinasciiError) as e:
+        raise ValueError(e)
 
 def parse_etags(etag_str):
     """

@@ -1,15 +1,14 @@
 # -*- coding:utf-8 -*-
-from __future__ import absolute_import
-
 import gettext
 import os
 from os import path
+import unittest
 
 from django.conf import settings
 from django.core.urlresolvers import reverse
 from django.test import LiveServerTestCase, TestCase
 from django.test.utils import override_settings
-from django.utils import six, unittest
+from django.utils import six
 from django.utils._os import upath
 from django.utils.translation import override
 from django.utils.text import javascript_quote
@@ -183,6 +182,8 @@ skip_selenium = not os.environ.get('DJANGO_SELENIUM_TESTS', False)
 @unittest.skipIf(skip_selenium, 'Selenium tests not requested')
 @unittest.skipUnless(firefox, 'Selenium not installed')
 class JavascriptI18nTests(LiveServerTestCase):
+
+    available_apps = []
     urls = 'view_tests.urls'
 
     @classmethod

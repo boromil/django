@@ -3,6 +3,7 @@ import re
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured, PermissionDenied
 from django.utils.module_loading import import_by_path
+from django.middleware.csrf import rotate_token
 
 from .signals import user_logged_in, user_logged_out, user_login_failed
 
@@ -84,6 +85,7 @@ def login(request, user):
     request.session[BACKEND_SESSION_KEY] = user.backend
     if hasattr(request, 'user'):
         request.user = user
+    rotate_token(request)
     user_logged_in.send(sender=user.__class__, request=request, user=user)
 
 
@@ -106,7 +108,9 @@ def logout(request):
 
 
 def get_user_model():
-    "Return the User model that is active in this project"
+    """
+    Returns the User model that is active in this project.
+    """
     from django.db.models import get_model
 
     try:
@@ -120,6 +124,10 @@ def get_user_model():
 
 
 def get_user(request):
+    """
+    Returns the user model instance associated with the given request session.
+    If no user is retrieved an instance of `AnonymousUser` is returned.
+    """
     from .models import AnonymousUser
     try:
         user_id = request.session[SESSION_KEY]
@@ -130,3 +138,10 @@ def get_user(request):
     except (KeyError, AssertionError):
         user = AnonymousUser()
     return user
+
+
+def get_permission_codename(action, opts):
+    """
+    Returns the codename of the permission for the specified action.
+    """
+    return '%s_%s' % (action, opts.model_name)

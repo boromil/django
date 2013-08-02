@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
 # This coding header is significant for tests, as the debug view is parsing
 # files to search for such a header to decode the source file content
-from __future__ import absolute_import, unicode_literals
+from __future__ import unicode_literals
 
 import inspect
 import os
+import shutil
 import sys
-import tempfile
+from tempfile import NamedTemporaryFile, mkdtemp, mkstemp
+from unittest import skipIf
 
 from django.core import mail
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -78,9 +80,38 @@ class DebugViewTests(TestCase):
                         raising_loc)
 
     def test_template_loader_postmortem(self):
-        response = self.client.get(reverse('raises_template_does_not_exist'))
-        template_path = os.path.join('templates', 'i_dont_exist.html')
-        self.assertContains(response, template_path, status_code=500)
+        """Tests for not existing file"""
+        template_name = "notfound.html"
+        with NamedTemporaryFile(prefix=template_name) as tempfile:
+            tempdir = os.path.dirname(tempfile.name)
+            template_path = os.path.join(tempdir, template_name)
+            with override_settings(TEMPLATE_DIRS=(tempdir,)):
+                response = self.client.get(reverse('raises_template_does_not_exist', kwargs={"path": template_name}))
+            self.assertContains(response, "%s (File does not exist)" % template_path, status_code=500, count=1)
+
+    @skipIf(sys.platform == "win32", "Python on Windows doesn't have working os.chmod() and os.access().")
+    def test_template_loader_postmortem_notreadable(self):
+        """Tests for not readable file"""
+        with NamedTemporaryFile() as tempfile:
+            template_name = tempfile.name
+            tempdir = os.path.dirname(tempfile.name)
+            template_path = os.path.join(tempdir, template_name)
+            os.chmod(template_path, 0o0222)
+            with override_settings(TEMPLATE_DIRS=(tempdir,)):
+                response = self.client.get(reverse('raises_template_does_not_exist', kwargs={"path": template_name}))
+            self.assertContains(response, "%s (File is not readable)" % template_path, status_code=500, count=1)
+
+    def test_template_loader_postmortem_notafile(self):
+        """Tests for not being a file"""
+        try:
+            template_path = mkdtemp()
+            template_name = os.path.basename(template_path)
+            tempdir = os.path.dirname(template_path)
+            with override_settings(TEMPLATE_DIRS=(tempdir,)):
+                response = self.client.get(reverse('raises_template_does_not_exist', kwargs={"path": template_name}))
+            self.assertContains(response, "%s (Not a file)" % template_path, status_code=500, count=1)
+        finally:
+            shutil.rmtree(template_path)
 
 
 class ExceptionReporterTests(TestCase):
@@ -125,11 +156,11 @@ class ExceptionReporterTests(TestCase):
 
     def test_eol_support(self):
         """Test that the ExceptionReporter supports Unix, Windows and Macintosh EOL markers"""
-        LINES = list(u'print %d' % i for i in range(1,6))
+        LINES = list('print %d' % i for i in range(1, 6))
         reporter = ExceptionReporter(None, None, None, None)
 
-        for newline in ['\n','\r\n','\r']:
-            fd,filename = tempfile.mkstemp(text = False)
+        for newline in ['\n', '\r\n', '\r']:
+            fd, filename = mkstemp(text=False)
             os.write(fd, force_bytes(newline.join(LINES)+newline))
             os.close(fd)
 
@@ -147,7 +178,7 @@ class ExceptionReporterTests(TestCase):
         reporter = ExceptionReporter(request, None, None, None)
         html = reporter.get_traceback_html()
         self.assertIn('<h1>Report at /test_view/</h1>', html)
-        self.assertIn('<pre class="exception_value">No exception supplied</pre>', html)
+        self.assertIn('<pre class="exception_value">No exception message supplied</pre>', html)
         self.assertIn('<th>Request Method:</th>', html)
         self.assertIn('<th>Request URL:</th>', html)
         self.assertNotIn('<th>Exception Type:</th>', html)

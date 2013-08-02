@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from __future__ import absolute_import, unicode_literals
+from __future__ import unicode_literals
 
 import datetime
 
@@ -391,7 +391,7 @@ class FormsExtraTestCase(TestCase, AssertFormErrorsMixin):
             def decompress(self, value):
                 if value:
                     data = value.split(',')
-                    return [data[0], data[1], datetime.datetime.strptime(data[2], "%Y-%m-%d %H:%M:%S")]
+                    return [data[0], list(data[1]), datetime.datetime.strptime(data[2], "%Y-%m-%d %H:%M:%S")]
                 return [None, None, None]
 
             def format_output(self, rendered_widgets):

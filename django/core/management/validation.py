@@ -51,6 +51,10 @@ def get_validation_errors(outfile, app=None):
 
         # If this is the current User model, check known validation problems with User models
         if settings.AUTH_USER_MODEL == '%s.%s' % (opts.app_label, opts.object_name):
+            # Check that REQUIRED_FIELDS is a list
+            if not isinstance(cls.REQUIRED_FIELDS, (list, tuple)):
+                e.add(opts, 'The REQUIRED_FIELDS must be a list or tuple.')
+
             # Check that the USERNAME FIELD isn't included in REQUIRED_FIELDS.
             if cls.USERNAME_FIELD in cls.REQUIRED_FIELDS:
                 e.add(opts, 'The field named as the USERNAME_FIELD should not be included in REQUIRED_FIELDS on a swappable User model.')
@@ -113,6 +117,8 @@ def get_validation_errors(outfile, app=None):
                 e.add(opts, '"%s": BooleanFields do not accept null values. Use a NullBooleanField instead.' % f.name)
             if isinstance(f, models.FilePathField) and not (f.allow_files or f.allow_folders):
                 e.add(opts, '"%s": FilePathFields must have either allow_files or allow_folders set to True.' % f.name)
+            if isinstance(f, models.GenericIPAddressField) and not getattr(f, 'null', False) and getattr(f, 'blank', False):
+                e.add(opts, '"%s": GenericIPAddressField can not accept blank values if null values are not allowed, as blank values are stored as null.' % f.name)
             if f.choices:
                 if isinstance(f.choices, six.string_types) or not is_iterable(f.choices):
                     e.add(opts, '"%s": "choices" should be iterable (e.g., a tuple or list).' % f.name)
